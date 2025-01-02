@@ -1,34 +1,48 @@
-
-
-import {  defineAction } from 'astro:actions';
-import { z } from 'astro:content';
-import { count, db, Product } from 'astro:db';
+import { defineAction } from "astro:actions";
+import { z } from "astro:content";
+import { count, db, eq, Product, ProductImage, sql } from "astro:db";
 
 export const getProductsByPage = defineAction({
-    accept: 'json',
-    input: z.object({
-        page: z.number().optional().default(1),
-        limit: z.number().optional().default(12),
-    }),
-    handler: async ( {page, limit}) => {
-        page = page < 1 ? 1 : page;
+  accept: "json",
+  input: z.object({
+    page: z.number().optional().default(1),
+    limit: z.number().optional().default(12),
+  }),
+  handler: async ({ page, limit }) => {
+    page = page < 0 ? 1 : page;
 
-        const[totalRecord] = await db.select({ count: count() }).from(Product)
-        const totalPage = Math.ceil(totalRecord.count / limit);
+    const [totalRecord] = await db.select({ count: count() }).from(Product);
+    const totalPages = Math.ceil(totalRecord.count / limit);
 
-        if(page > totalPage) {
-            return {
-                products: [],
-                page: totalPage,
-                totalPage: totalPage,
-            }
-        }
+    if (page > totalPages) {
+        // page = totalPages;
+      return {
+        products: [],
+        totalPages: totalPages,
+      };
+    }
 
-        const products = await db.select().from(Product).limit(limit).offset((page - 1) * 12);
+    const productsQuery = sql`
+    select a.*,
+    ( select GROUP_CONCAT(image,',') from 
+        ( select * from ${ProductImage} where productId = a.id limit 2 )
+     ) as images
+    from ${Product} a
+    LIMIT ${limit} OFFSET ${(page - 1) * limit};
+    `;
 
-        return{
-            products: products,
-            totalPage: totalPage,
-        };
-    },
-})
+  const { rows } = await db.run(productsQuery);
+  console.log(rows);
+    /*  const products = await db
+        .select()
+        .from(Product)
+        .innerJoin(ProductImage, eq(Product.id, ProductImage.product))
+        .limit(limit)
+        .offset((page - 1) * 12);
+ */
+    return {
+    //   products: products,
+      totalPages: totalPages,
+    };
+  },
+});
