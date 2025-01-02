@@ -40,16 +40,28 @@ export default async function seed() {
                 description: p.description,
                 gender: p.gender,
                 price: p.price, 
-                sizes: p.sizes.join(','),
+                size: p.sizes.join(','),
                 stock: p.stock, 
-                tags: p.tags.join(','),
+                tag: p.tags.join(','),
                 title: p.title,
                 type: p.type,
                 user: johnDoe.id,
+                slug: p.slug
             };
 
          queries.push(db.insert(Product).values(product));   
 
-        })
+         p.images.forEach( (img) => {
+            const image = {
+                id: UUID(),
+                product: product.id,
+                image: img,
+            };
+            queries.push(db.insert(ProductImage).values(image));   
+         });
+
+        });
+
+        await db.batch(queries);
       
 }  
